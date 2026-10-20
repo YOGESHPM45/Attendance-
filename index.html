@@ -123,6 +123,14 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
     <p class="sub">Welding labour work. Every day counts, including holidays.</p>
   </header>
 
+  <section class="panel" aria-label="Balance now">
+    <div>
+      <span class="lbl">Balance to receive now</span>
+      <div class="total" id="nowTotal"></div>
+    </div>
+    <p class="foot" id="nowBreak"></p>
+  </section>
+
   <section class="panel" aria-label="Mark attendance">
     <div>
       <label for="date">Date</label>
@@ -151,7 +159,7 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
       <button class="btn small" id="next" type="button" aria-label="Next month">&rarr;</button>
     </div>
     <div>
-      <span class="lbl">Balance to receive</span>
+      <span class="lbl">This month only</span>
       <div class="total" id="total"></div>
     </div>
     <div class="stats">
@@ -198,6 +206,12 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
     <p class="foot">Tap a day to open it above and change it.</p>
   </section>
 
+  <section class="panel" aria-label="Opening balance">
+    <h2>Opening balance</h2>
+    <div class="total" id="oshow"></div>
+    <p class="foot" id="onote"></p>
+  </section>
+
   <section class="panel" aria-label="Backup">
     <div class="row">
       <button class="btn grow" id="export" type="button">Save backup (CSV)</button>
@@ -221,6 +235,7 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
 
   var entries = {};      // "YYYY-MM-DD" -> { place, u }
   var withdrawals = [];  // [{ id, date, amt, note }]
+  var opening = { amt: 4720, date: "2026-10-16" };  // balance owed before counting starts
   var armed = null;      // withdrawal id waiting for a second tap to remove
   var lastPlace = "";
   var selectedUnit = "1";
@@ -243,10 +258,25 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
     try { localStorage.setItem(STORE, JSON.stringify({ entries: entries, lastPlace: lastPlace, withdrawals: withdrawals })); } catch (e) {}
   }
   function say(t) { $("msg").textContent = t; }
+  function nowBalance() {
+    var s = opening.date, earned = 0, taken = 0, open = Number(opening.amt) || 0;
+    Object.keys(entries).forEach(function (k) { if (!s || k >= s) earned += opt(entries[k].u).amount; });
+    withdrawals.forEach(function (w) { if (!s || w.date >= s) taken += w.amt; });
+    return { open: open, earned: earned, taken: taken, total: open + earned - taken };
+  }
+  function renderNow() {
+    var b = nowBalance();
+    $("nowTotal").textContent = money(b.total);
+    $("nowBreak").textContent = "Opening " + money(b.open) + " + earned " + money(b.earned) + " − taken " + money(b.taken);
+  }
+  function applyMin() {
+    var m = opening.date || "";
+    $("date").min = m; $("wdate").min = m;
+  }
   function monthPrefix() { return viewMonth.y + "-" + pad(viewMonth.m + 1); }
   function monthWithdrawals() {
     var p = monthPrefix();
-    return withdrawals.filter(function (w) { return w.date.slice(0, 7) === p; }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    return withdrawals.filter(function (w) { return w.date.slice(0, 7) === p && (!opening.date || w.date >= opening.date); }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
   }
   function renderWithdrawals() {
     var list = monthWithdrawals(), box = $("wlist"); box.textContent = "";
@@ -300,7 +330,7 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
   function monthKeys() {
     var y = viewMonth.y, m = viewMonth.m, n = new Date(y, m + 1, 0).getDate(), out = [];
     var t = todayIso();
-    for (var d = 1; d <= n; d++) { var k = iso(y, m, d); if (k <= t) out.push(k); }
+    for (var d = 1; d <= n; d++) { var k = iso(y, m, d); if (k <= t && (!opening.date || k >= opening.date)) out.push(k); }
     return out;
   }
 
@@ -328,6 +358,7 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
     });
     renderSummary(keys);
     renderWithdrawals();
+    renderNow();
   }
 
   function renderSummary(keys) {
@@ -387,6 +418,7 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
   function csvCell(s) { s = String(s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
   function exportCsv() {
     var rows = ["Date,Place,Attendance,Amount"];
+    if (opening.amt) rows.push([opening.date, "Opening balance", "Opening balance", opening.amt].join(","));
     Object.keys(entries).sort().forEach(function (k) {
       var e = entries[k], o = opt(e.u);
       rows.push([k, csvCell(e.place), o.label, o.amount].join(","));
@@ -418,7 +450,8 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
       lines.push(w.date.slice(8) + "/" + w.date.slice(5, 7) + "  Money taken  " + money(w.amt) + (w.note ? "  " + w.note : ""));
     });
     lines.push("Money taken: " + money(taken));
-    lines.push("Balance to receive: " + money(total - taken));
+    lines.push("This month: " + money(total - taken));
+    lines.push("Balance to receive now: " + money(nowBalance().total));
     var text = lines.join("\n");
     var ok = function () { say("Summary copied."); };
     var fail = function () { say("Copy was blocked on this phone."); };
@@ -445,6 +478,9 @@ input[type="number"] { width: 100%; font: inherit; color: var(--fg); background:
     $("wdate").value = todayIso();
     $("wdate").max = todayIso();
     $("wadd").addEventListener("click", addWithdrawal);
+    $("oshow").textContent = money(opening.amt);
+    $("onote").textContent = "Balance before 16 Oct 2026. This is locked and cannot be changed.";
+    applyMin();
     loadDateIntoForm();
   }
   init();
