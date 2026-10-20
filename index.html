@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Workshop Attendance</title>
+<meta name="theme-color" content="#e8590c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+html { color-scheme: light; }
+body { margin: 0; }
+/* Layout: one narrow column built for a phone. Entry form on top, month total, then a day-by-day log. */
+:root {
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --fg: #1c2530;
+  --muted: #5f6b7a;
+  --line: #d5dae1;
+  --accent: #e8590c;
+  --accent-fg: #ffffff;
+  --full: #1f7a4d;
+  --one-half: #1d5fb8;
+  --half: #a8650a;
+  --absent: #8a94a2;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171d; --surface: #1b232c; --fg: #e8ecf1; --muted: #9aa6b4; --line: #2f3a46;
+    --accent: #ff7a2e; --accent-fg: #1a1208;
+    --full: #4cc88a; --one-half: #6ea8ff; --half: #e6a24a; --absent: #7d8896;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171d; --surface: #1b232c; --fg: #e8ecf1; --muted: #9aa6b4; --line: #2f3a46;
+  --accent: #ff7a2e; --accent-fg: #1a1208;
+  --full: #4cc88a; --one-half: #6ea8ff; --half: #e6a24a; --absent: #7d8896;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.4;
+  padding-block: 16px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 560px; margin: 0 auto; display: grid; gap: 16px; }
+h1, h2 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; }
+h1 { font-size: 30px; letter-spacing: .02em; text-transform: uppercase; }
+h2 { font-size: 22px; letter-spacing: .02em; text-transform: uppercase; }
+.sub { color: var(--muted); margin: 2px 0 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 14px; }
+label, .lbl { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
+input[type="date"], input[type="text"] {
+  width: 100%; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 12px; min-height: 48px;
+}
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.opt {
+  font: inherit; text-align: left; cursor: pointer; color: var(--fg); background: var(--bg);
+  border: 2px solid var(--line); border-radius: 6px; padding: 10px 12px; min-height: 60px;
+  display: grid; gap: 2px;
+}
+.opt b { font-family: var(--display); font-size: 20px; letter-spacing: .02em; }
+.opt span { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.opt[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.btn {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 6px; min-height: 48px; padding: 0 16px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-size: 17px; }
+.btn.small { min-height: 40px; padding: 0 12px; font-size: 14px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > * { min-width: 0; }
+.grow { flex: 1; }
+.msg { min-height: 20px; margin: 0; font-size: 14px; color: var(--full); }
+.monthbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.monthbar h2 { text-align: center; flex: 1; }
+.total { font-family: var(--display); font-weight: 700; font-size: 52px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.stat b { display: block; font-family: var(--display); font-size: 26px; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 13px; }
+.places { display: grid; gap: 4px; font-size: 15px; }
+.places div { display: flex; justify-content: space-between; gap: 8px; }
+.places span:first-child { overflow-wrap: anywhere; }
+.log { display: grid; gap: 0; }
+.day {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  width: 100%; text-align: left; font: inherit; color: var(--fg); background: none; cursor: pointer;
+  border: 0; border-top: 1px solid var(--line); padding: 10px 0; min-height: 56px;
+}
+.day:first-child { border-top: 0; }
+.dnum { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1; text-align: center; font-variant-numeric: tabular-nums; }
+.dnum small { display: block; font-family: var(--body); font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.dplace { overflow-wrap: anywhere; }
+.dplace.none { color: var(--muted); }
+.chip { font-size: 13px; font-weight: 600; border-radius: 99px; padding: 4px 10px; border: 1.5px solid currentColor; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.c-full { color: var(--full); } .c-1_5 { color: var(--one-half); } .c-0_5 { color: var(--half); } .c-0 { color: var(--absent); } .c-empty { color: var(--muted); border-style: dashed; }
+.day.sel { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.foot { color: var(--muted); font-size: 13px; margin: 0; }
+.wlist { display: grid; gap: 0; }
+.w { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border-top: 1px solid var(--line); padding: 8px 0; min-height: 52px; }
+.w:first-child { border-top: 0; }
+.wd { font-family: var(--display); font-weight: 700; font-size: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+.wn { overflow-wrap: anywhere; }
+.wn.none { color: var(--muted); }
+.wa { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--half); }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+@media (max-width: 380px) { .two { grid-template-columns: minmax(0, 1fr); } }
+input[type="number"] { width: 100%; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; min-height: 48px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Workshop Attendance</h1>
+    <p class="sub">Welding labour work. Every day counts, including holidays.</p>
+  </header>
+
+  <section class="panel" aria-label="Mark attendance">
+    <div>
+      <label for="date">Date</label>
+      <input type="date" id="date">
+    </div>
+    <div>
+      <label for="place">Work place</label>
+      <input type="text" id="place" list="placeList" placeholder="Where did you work?" autocomplete="off">
+      <datalist id="placeList"></datalist>
+    </div>
+    <div>
+      <span class="lbl">Attendance</span>
+      <div class="opts" id="opts"></div>
+    </div>
+    <div class="row">
+      <button class="btn primary grow" id="save" type="button">Save day</button>
+      <button class="btn" id="clear" type="button">Remove</button>
+    </div>
+    <p class="msg" id="msg" role="status"></p>
+  </section>
+
+  <section class="panel" aria-label="Month total">
+    <div class="monthbar">
+      <button class="btn small" id="prev" type="button" aria-label="Previous month">&larr;</button>
+      <h2 id="monthName"></h2>
+      <button class="btn small" id="next" type="button" aria-label="Next month">&rarr;</button>
+    </div>
+    <div>
+      <span class="lbl">Balance to receive</span>
+      <div class="total" id="total"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sEarned"></b><span>Salary earned</span></div>
+      <div class="stat"><b id="sTaken"></b><span>Money taken</span></div>
+      <div class="stat"><b id="sDays"></b><span>Days worked</span></div>
+      <div class="stat"><b id="sUnits"></b><span>Day units paid</span></div>
+      <div class="stat"><b id="sAbsent"></b><span>Absent days</span></div>
+      <div class="stat"><b id="sMissing"></b><span>Days not marked</span></div>
+    </div>
+    <div>
+      <span class="lbl">By place</span>
+      <div class="places" id="places"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Money taken">
+    <h2>Money taken</h2>
+    <div class="two">
+      <div>
+        <label for="wdate">Date</label>
+        <input type="date" id="wdate">
+      </div>
+      <div>
+        <label for="wamt">Amount (₹)</label>
+        <input type="number" id="wamt" inputmode="numeric" min="1" step="1" placeholder="200">
+      </div>
+    </div>
+    <div>
+      <label for="wnote">What for</label>
+      <input type="text" id="wnote" placeholder="Tea, bus fare, recharge..." autocomplete="off">
+    </div>
+    <button class="btn primary" id="wadd" type="button">Add money taken</button>
+    <p class="msg" id="wmsg" role="status"></p>
+    <div>
+      <span class="lbl" id="wtitle">Taken this month</span>
+      <div class="wlist" id="wlist"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Day log">
+    <h2>Day by day</h2>
+    <div class="log" id="log"></div>
+    <p class="foot">Tap a day to open it above and change it.</p>
+  </section>
+
+  <section class="panel" aria-label="Backup">
+    <div class="row">
+      <button class="btn grow" id="export" type="button">Save backup (CSV)</button>
+      <button class="btn grow" id="copy" type="button">Copy month summary</button>
+    </div>
+    <p class="foot">Records are kept in this browser on this phone. Save a backup now and then.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  var OPTIONS = [
+    { key: "1",   label: "Full day",  amount: 600, chip: "c-full" },
+    { key: "1.5", label: "1½ day",    amount: 900, chip: "c-1_5" },
+    { key: "0.5", label: "½ day",     amount: 300, chip: "c-0_5" },
+    { key: "0",   label: "Absent",    amount: 0,   chip: "c-0" }
+  ];
+  var STORE = "workshop-attendance-v1";
+  var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var DOW = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+
+  var entries = {};      // "YYYY-MM-DD" -> { place, u }
+  var withdrawals = [];  // [{ id, date, amt, note }]
+  var armed = null;      // withdrawal id waiting for a second tap to remove
+  var lastPlace = "";
+  var selectedUnit = "1";
+  var viewMonth;         // {y, m}
+
+  function $(id) { return document.getElementById(id); }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function iso(y, m, d) { return y + "-" + pad(m + 1) + "-" + pad(d); }
+  function todayIso() { var t = new Date(); return iso(t.getFullYear(), t.getMonth(), t.getDate()); }
+  function money(n) { n = Number(n); return (n < 0 ? "-" : "") + "₹" + Math.abs(n).toLocaleString("en-IN"); }
+  function opt(key) { for (var i = 0; i < OPTIONS.length; i++) if (OPTIONS[i].key === String(key)) return OPTIONS[i]; return OPTIONS[3]; }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE);
+      if (raw) { var o = JSON.parse(raw); entries = o.entries || {}; lastPlace = o.lastPlace || ""; withdrawals = o.withdrawals || []; }
+    } catch (e) {}
+  }
+  function persist() {
+    try { localStorage.setItem(STORE, JSON.stringify({ entries: entries, lastPlace: lastPlace, withdrawals: withdrawals })); } catch (e) {}
+  }
+  function say(t) { $("msg").textContent = t; }
+  function monthPrefix() { return viewMonth.y + "-" + pad(viewMonth.m + 1); }
+  function monthWithdrawals() {
+    var p = monthPrefix();
+    return withdrawals.filter(function (w) { return w.date.slice(0, 7) === p; }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  }
+  function renderWithdrawals() {
+    var list = monthWithdrawals(), box = $("wlist"); box.textContent = "";
+    $("wtitle").textContent = "Taken in " + MONTHS[viewMonth.m] + " " + viewMonth.y;
+    if (!list.length) { var n = document.createElement("div"); n.className = "foot"; n.textContent = "Nothing taken this month."; box.appendChild(n); return; }
+    list.forEach(function (w) {
+      var r = document.createElement("div"); r.className = "w";
+      var d = document.createElement("div"); d.className = "wd"; d.textContent = w.date.slice(8) + "/" + w.date.slice(5, 7);
+      var nt = document.createElement("div"); nt.className = "wn" + (w.note ? "" : " none"); nt.textContent = w.note || "No note";
+      var a = document.createElement("div"); a.className = "wa"; a.textContent = money(w.amt);
+      var b = document.createElement("button"); b.type = "button"; b.className = "btn small";
+      b.textContent = armed === w.id ? "Sure?" : "Remove";
+      b.addEventListener("click", function () {
+        if (armed === w.id) { withdrawals = withdrawals.filter(function (x) { return x.id !== w.id; }); armed = null; persist(); renderLog(); }
+        else { armed = w.id; renderWithdrawals(); }
+      });
+      r.appendChild(d); r.appendChild(nt); r.appendChild(a); r.appendChild(b); box.appendChild(r);
+    });
+  }
+  function addWithdrawal() {
+    var date = $("wdate").value, amt = Math.round(Number($("wamt").value)), wm = $("wmsg");
+    if (!date) { wm.textContent = "Pick a date."; return; }
+    if (!(amt > 0)) { wm.textContent = "Type the amount."; $("wamt").focus(); return; }
+    withdrawals.push({ id: String(Date.now()) + Math.floor(Math.random() * 1000), date: date, amt: amt, note: $("wnote").value.trim() });
+    var dt = new Date(date + "T00:00:00"); viewMonth = { y: dt.getFullYear(), m: dt.getMonth() };
+    persist(); $("wamt").value = ""; $("wnote").value = ""; renderLog();
+    wm.textContent = "Added " + money(amt) + " on " + date + ".";
+  }
+
+  function renderOpts() {
+    var box = $("opts"); box.textContent = "";
+    OPTIONS.forEach(function (o) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "opt";
+      b.setAttribute("aria-pressed", String(o.key === selectedUnit));
+      var t = document.createElement("b"); t.textContent = o.label;
+      var s = document.createElement("span"); s.textContent = money(o.amount);
+      b.appendChild(t); b.appendChild(s);
+      b.addEventListener("click", function () { selectedUnit = o.key; renderOpts(); });
+      box.appendChild(b);
+    });
+  }
+
+  function loadDateIntoForm() {
+    var d = $("date").value, e = entries[d];
+    if (e) { $("place").value = e.place; selectedUnit = String(e.u); }
+    else { $("place").value = lastPlace; selectedUnit = "1"; }
+    renderOpts(); renderLog();
+  }
+
+  function monthKeys() {
+    var y = viewMonth.y, m = viewMonth.m, n = new Date(y, m + 1, 0).getDate(), out = [];
+    var t = todayIso();
+    for (var d = 1; d <= n; d++) { var k = iso(y, m, d); if (k <= t) out.push(k); }
+    return out;
+  }
+
+  function renderLog() {
+    var keys = monthKeys(), log = $("log"); log.textContent = "";
+    $("monthName").textContent = MONTHS[viewMonth.m] + " " + viewMonth.y;
+    var sel = $("date").value;
+    keys.slice().reverse().forEach(function (k) {
+      var e = entries[k], dt = new Date(k + "T00:00:00");
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "day" + (k === sel ? " sel" : "");
+      var n = document.createElement("div"); n.className = "dnum";
+      n.textContent = dt.getDate();
+      var sm = document.createElement("small"); sm.textContent = DOW[dt.getDay()]; n.appendChild(sm);
+      var p = document.createElement("div"); p.className = "dplace" + (e ? "" : " none");
+      p.textContent = e ? (e.u === 0 && !e.place ? "Absent" : (e.place || "No place noted")) : "Not marked";
+      var c = document.createElement("span");
+      if (e) { var o = opt(e.u); c.className = "chip " + o.chip; c.textContent = o.label + " · " + money(o.amount); }
+      else { c.className = "chip c-empty"; c.textContent = "Add"; }
+      b.appendChild(n); b.appendChild(p); b.appendChild(c);
+      b.addEventListener("click", function () {
+        $("date").value = k; loadDateIntoForm(); say(""); window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      log.appendChild(b);
+    });
+    renderSummary(keys);
+    renderWithdrawals();
+  }
+
+  function renderSummary(keys) {
+    var total = 0, worked = 0, units = 0, absent = 0, missing = 0, byPlace = {};
+    keys.forEach(function (k) {
+      var e = entries[k];
+      if (!e) { missing++; return; }
+      var o = opt(e.u);
+      total += o.amount;
+      if (e.u === 0) absent++;
+      else { worked++; units += Number(e.u); var pl = e.place || "No place noted"; byPlace[pl] = byPlace[pl] || { amt: 0, units: 0 }; byPlace[pl].amt += o.amount; byPlace[pl].units += Number(e.u); }
+    });
+    var taken = monthWithdrawals().reduce(function (s, w) { return s + w.amt; }, 0);
+    $("total").textContent = money(total - taken);
+    $("sEarned").textContent = money(total);
+    $("sTaken").textContent = money(taken);
+    $("sDays").textContent = worked;
+    $("sUnits").textContent = units;
+    $("sAbsent").textContent = absent;
+    $("sMissing").textContent = missing;
+    var box = $("places"); box.textContent = "";
+    var names = Object.keys(byPlace);
+    if (!names.length) { var none = document.createElement("div"); none.textContent = "No work marked yet."; box.appendChild(none); }
+    names.sort(function (a, b) { return byPlace[b].amt - byPlace[a].amt; }).forEach(function (nm) {
+      var r = document.createElement("div");
+      var a = document.createElement("span"); a.textContent = nm + " (" + byPlace[nm].units + " day)";
+      var b = document.createElement("span"); b.textContent = money(byPlace[nm].amt);
+      r.appendChild(a); r.appendChild(b); box.appendChild(r);
+    });
+    var dl = $("placeList"); dl.textContent = "";
+    var seen = {};
+    Object.keys(entries).forEach(function (k) { var p = entries[k].place; if (p) seen[p] = 1; });
+    Object.keys(seen).forEach(function (p) { var o = document.createElement("option"); o.value = p; dl.appendChild(o); });
+  }
+
+  function saveDay() {
+    var d = $("date").value;
+    if (!d) { say("Pick a date first."); return; }
+    var place = $("place").value.trim();
+    if (!place && selectedUnit !== "0") { say("Type the work place."); $("place").focus(); return; }
+    entries[d] = { place: place, u: Number(selectedUnit) };
+    if (place) lastPlace = place;
+    persist(); renderLog();
+    say("Saved " + d + ": " + opt(selectedUnit).label + " (" + money(opt(selectedUnit).amount) + ")");
+  }
+  function removeDay() {
+    var d = $("date").value;
+    if (entries[d]) { delete entries[d]; persist(); loadDateIntoForm(); say("Removed " + d + "."); }
+    else say("Nothing saved for this date.");
+  }
+  function shiftMonth(delta) {
+    var d = new Date(viewMonth.y, viewMonth.m + delta, 1);
+    viewMonth = { y: d.getFullYear(), m: d.getMonth() };
+    renderLog();
+  }
+
+  function csvCell(s) { s = String(s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function exportCsv() {
+    var rows = ["Date,Place,Attendance,Amount"];
+    Object.keys(entries).sort().forEach(function (k) {
+      var e = entries[k], o = opt(e.u);
+      rows.push([k, csvCell(e.place), o.label, o.amount].join(","));
+    });
+    withdrawals.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (w) {
+      rows.push([w.date, csvCell(w.note), "Money taken", -w.amt].join(","));
+    });
+    if (rows.length === 1) { say("No days to back up yet."); return; }
+    try {
+      var blob = new Blob([rows.join("\n")], { type: "text/csv" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "attendance-backup.csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      say("Backup saved to your Downloads.");
+    } catch (e) { say("Could not save the backup."); }
+  }
+  function copySummary() {
+    var keys = monthKeys(), lines = [MONTHS[viewMonth.m] + " " + viewMonth.y + " attendance"], total = 0;
+    keys.forEach(function (k) {
+      var e = entries[k]; if (!e) return;
+      var o = opt(e.u); total += o.amount;
+      lines.push(k.slice(8) + "/" + k.slice(5, 7) + "  " + o.label + "  " + money(o.amount) + (e.place ? "  " + e.place : ""));
+    });
+    lines.push("Salary earned: " + money(total));
+    var taken = 0;
+    monthWithdrawals().slice().reverse().forEach(function (w) {
+      taken += w.amt;
+      lines.push(w.date.slice(8) + "/" + w.date.slice(5, 7) + "  Money taken  " + money(w.amt) + (w.note ? "  " + w.note : ""));
+    });
+    lines.push("Money taken: " + money(taken));
+    lines.push("Balance to receive: " + money(total - taken));
+    var text = lines.join("\n");
+    var ok = function () { say("Summary copied."); };
+    var fail = function () { say("Copy was blocked on this phone."); };
+    try { navigator.clipboard.writeText(text).then(ok, fail); } catch (e) { fail(); }
+  }
+
+  function init() {
+    load();
+    var t = new Date();
+    viewMonth = { y: t.getFullYear(), m: t.getMonth() };
+    $("date").value = todayIso();
+    $("date").max = todayIso();
+    $("date").addEventListener("change", function () {
+      var d = $("date").value; if (!d) return;
+      var dt = new Date(d + "T00:00:00"); viewMonth = { y: dt.getFullYear(), m: dt.getMonth() };
+      loadDateIntoForm(); say("");
+    });
+    $("save").addEventListener("click", saveDay);
+    $("clear").addEventListener("click", removeDay);
+    $("prev").addEventListener("click", function () { shiftMonth(-1); });
+    $("next").addEventListener("click", function () { shiftMonth(1); });
+    $("export").addEventListener("click", exportCsv);
+    $("copy").addEventListener("click", copySummary);
+    $("wdate").value = todayIso();
+    $("wdate").max = todayIso();
+    $("wadd").addEventListener("click", addWithdrawal);
+    loadDateIntoForm();
+  }
+  init();
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(function () {}); }
+})();
+</script>
+</body>
+</html>
